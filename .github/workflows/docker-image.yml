@@ -31,8 +31,9 @@ jobs:
       with:
         images: josemi/drupal-ecs-boilerplate
         tags: |
-            type=ref,event=branch
-            type=ref,event=tag
+          type=ref,event=tag
+          type=semver,pattern={{version}}
+          latest
 
     - name: Build and push Docker image
       id: push
@@ -41,7 +42,5 @@ jobs:
         context: .
         file: ./Dockerfile
         push: true
-        tags: |
-          josemi/drupal-ecs-boilerplate:latest
-          josemi/drupal-ecs-boilerplate:${{ steps.meta.outputs.tags }}
+        tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
