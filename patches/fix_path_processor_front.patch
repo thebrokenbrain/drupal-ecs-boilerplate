@@ -1,0 +1,67 @@
+diff --git a/core/core.services.yml b/core/core.services.yml
+index 3f9619f430..2f43030f66 100644
+--- a/core/core.services.yml
++++ b/core/core.services.yml
+@@ -1471,6 +1471,7 @@ services:
+     class: Drupal\Core\PathProcessor\PathProcessorFront
+     tags:
+       - { name: path_processor_inbound, priority: 200 }
++      - { name: path_processor_outbound, priority: 200 }
+     arguments: ['@config.factory']
+   route_processor_current:
+     class: Drupal\Core\RouteProcessor\RouteProcessorCurrent
+diff --git a/core/lib/Drupal/Core/PathProcessor/PathProcessorFront.php b/core/lib/Drupal/Core/PathProcessor/PathProcessorFront.php
+index f8ef4c28b2..63292da3e5 100644
+--- a/core/lib/Drupal/Core/PathProcessor/PathProcessorFront.php
++++ b/core/lib/Drupal/Core/PathProcessor/PathProcessorFront.php
+@@ -3,13 +3,14 @@
+ namespace Drupal\Core\PathProcessor;
+ 
+ use Drupal\Core\Config\ConfigFactoryInterface;
++use Drupal\Core\Render\BubbleableMetadata;
+ use Symfony\Component\HttpFoundation\Request;
+ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+ 
+ /**
+  * Processes the inbound path by resolving it to the front page if empty.
+  */
+-class PathProcessorFront implements InboundPathProcessorInterface {
++class PathProcessorFront implements InboundPathProcessorInterface, OutboundPathProcessorInterface {
+ 
+   /**
+    * A config factory for retrieving required config settings.
+@@ -53,4 +54,34 @@ public function processInbound($path, Request $request) {
+     return $path;
+   }
+ 
++  /**
++   * {@inheritdoc}
++   */
++  public function processOutbound($path, &$options = [], Request $request = NULL, BubbleableMetadata $bubbleable_metadata = NULL) {
++    // Get the path or alias for the front page.
++    if (\Drupal::moduleHandler()->moduleExists('path_alias')) {
++      $front = $this->config->get('system.site')->get('page.front');
++      $langcode = !empty($options['language']) ? $options['language']->getId() : NULL;
++
++      // Get path and alias for the configured frontpage setting
++      $alias_manager = \Drupal::service('path_alias.manager');
++      $front_path = $alias_manager->getPathByAlias($front, $langcode);
++      $front_alias = $alias_manager->getAliasByPath($front, $langcode);
++
++      // Replace the path and alias with default frontpage path
++      if (!empty($front_path) && $path === $front_path) {
++        $path = '/';
++      }
++      if (!empty($front_alias) && $path === $front_alias) {
++        $path = '/';
++      }
++    }
++
++    // The special path '<front>' links to the default front page.
++    if ($path === '/<front>') {
++      $path = '/';
++    }
++    return $path;
++  }
++
+ }
